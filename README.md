@@ -1,6 +1,6 @@
-In the `figs` folder you will find a [large figure](https://github.com/nsiccha/monster/tree/master/figs/incremental.png) representing a fit of the Monster model. I'll try to keep this readme as brief as possible.
+In the `figs` folder you will find large figures([constrained](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/incremental.png), [unconstrained](https://github.com/nsiccha/monster/tree/master/figs/unconstrained_monster/incremental.png)) representing a fit of the Monster model. I'll try to keep this readme as brief as possible.
 
-I rebuilt the [model](https://github.com/nsiccha/monster/tree/master/stan/monster.stan)
+I rebuilt the models ([constrained](https://github.com/nsiccha/monster/tree/master/stan/constrained_monster.stan), [unconstrained](https://github.com/nsiccha/monster/tree/master/stan/unconstrained_monster.stan))
 - (mostly) according to the specification in [the original paper](https://stat.columbia.edu/~gelman/research/published/toxicology.pdf),
 - from which I also took the [publicly available data](https://github.com/nsiccha/monster/tree/master/public_data.py),
 - taking `PPM_per_mg_per_l` from the [MCSim documentation example](https://www.gnu.org/software/mcsim/mcsim.html#perc_002emodel) which differs from the value given in the paper,
@@ -14,23 +14,23 @@ I kept
 - the lower and upper truncation for the population (geometric) means.
 
 I potentially did not implement faithfully
-- the "sum-to-one" constraints. Compare samples from the prior with the bounds (grey vertical dashed lines in the population mean plots) at https://github.com/nsiccha/monster/tree/master/figs/prior.png
+- the "sum-to-one" constraints. Compare samples from the prior with the bounds (grey vertical dashed lines in the population mean plots) at [constrained priors](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/prior.png) and [unconstrained priors](https://github.com/nsiccha/monster/tree/master/figs/unconstrained_monster/prior.png)
 
 I don't *think* the sum-to-one constraints should impact the fit *very* much, though `Fwp` looks a bit weird.
 
 I did/checked
-- [prior predictive checks](https://github.com/nsiccha/monster/tree/master/figs/prior.png),
-- [paper-posterior predictive checks](https://github.com/nsiccha/monster/tree/master/figs/posterior.png),
-- [posterior predictive checks](https://github.com/nsiccha/monster/tree/master/figs/incremental.png)
+- [prior predictive checks](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/prior.png),
+- [paper-posterior predictive checks](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/posterior.png),
+- [posterior predictive checks](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/incremental.png)
 - after Bob's suggestion a poor man's [SBC](https://github.com/nsiccha/monster/tree/master/figs/sbc/monster/0.png), for which the fits don't look too bad (red vertical lines are the true parameter values and are sampled from the paper-posteriors)
 All predictive checks and the generated data used for SBC used the built-in BDF solver with high precision (rel_tol=1e-12, abs_tol=1e-26).
 
-Warmup+sampling (while conditioning only on the data from the first two participants) took [3+3 minutes](https://github.com/nsiccha/monster/tree/master/figs/incremental.png) for "my" incremental warmup, which includes an automatic adaptation of the ODE solution precision , while it took [24+6 minutes](https://github.com/nsiccha/monster/tree/master/figs/regular.png) using Stan's regular warmup, with the ODE solution precision provided by my warmup (not included in runtime). Neff is slightly higher for my warmup, but overall comparable. There were no divergences. Rhat with 6x333 samples is 1.014/1.023. E-BFMI is a bit low, around 0.5.
+Warmup+sampling (while conditioning only on the data from the first two participants) took [3+3 minutes](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/incremental.png) for "my" incremental warmup, which includes an automatic adaptation of the ODE solution precision , while it took [24+6 minutes](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/regular.png) using Stan's regular warmup, with the ODE solution precision provided by my warmup (not included in runtime). Neff is slightly higher for my warmup, but overall comparable. There were no divergences. Rhat with 6x333 samples is 1.014/1.023. E-BFMI is a bit low, around 0.5.
 
 My warmup consists of repeatedly rerunning the first two adaptation windows with few iterations and pooling draws to estimate the covariance across chains, while
 - first simultaneously increasing the number of data points included and
 - then simultaneously increasing the precision of the ODE solver until we think lp__ has converged.
-Plots of intermediate fits can be found in https://github.com/nsiccha/monster/tree/master/figs/incremental.
+Plots of intermediate fits can be found in https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/incremental.
 
 Neither for this partial fit nor for fits including all of the data was I able to recover the marginal posteriors as provided in the original paper (black vertical lines for all figures). Some parameters agreed relatively well, others not at all. Most of my marginal posteriors were considerably wider than the ones from the paper.
 

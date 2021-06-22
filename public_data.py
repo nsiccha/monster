@@ -24,12 +24,12 @@ no_persons = 6
 prior_population_parameters = np.array([
 #   [ eM ,  eS ,Sigma, nu, trunc]
     [1.6 , 1.3 , 1.3 , 2, 3],#VPR,0
-    [.47 , 1.17, 1.17, 2, 3],#Fwp,1
-    [.2  , 1.22, 1.22, 2, 3],#Fpp,2
-    [.07 , 1.27, 1.27, 2, 3],#Ff,3
-    [.25 , 1.15, 1.15, 2, 3],#Fl,4
-    [.27 , 1.36, 1.36, 2, 3],#Vwp,5
-    [.55 , 1.17, 1.17, 2, 3],#Vpp,6
+    [.48 , 1.2, 1.2, 2, 3],#Fwp,1
+    [.2  , 1.2, 1.2, 2, 3],#Fpp,2
+    [.07 , 1.2, 1.2, 2, 3],#Ff,3
+    [.25 , 1.1, 1.1, 2, 3],#Fl,4
+    [.28 , 1.2, 1.2, 2, 3],#Vwp,5
+    [.56 , 1.2, 1.2, 2, 3],#Vpp,6
     [.033, 1.1 , 1.1 , 2, 3],#Vl,7
     [12  , 1.5 , 1.3 , 2, 3],#Pba,8
     [4.8 , 1.5 , 1.3 , 2, 3],#Pwb,9
@@ -39,6 +39,18 @@ prior_population_parameters = np.array([
     [.042, 10  , 2   , 2, 2],#VMI,13
     [16  , 10  , 1.5 , 2, 2]#KMI,14
 ])
+
+adjusted_prior_population_parameters = prior_population_parameters.copy()
+adjusted_prior_population_parameters[1, 0] = .47
+adjusted_prior_population_parameters[5, 0] = .27
+adjusted_prior_population_parameters[6, 0] = .55
+adjusted_prior_population_parameters[1, 1] = 1.17
+adjusted_prior_population_parameters[2, 1] = 1.22
+adjusted_prior_population_parameters[3, 1] = 1.27
+adjusted_prior_population_parameters[4, 1] = 1.15
+adjusted_prior_population_parameters[5, 1] = 1.36
+adjusted_prior_population_parameters[6, 1] = 1.17
+adjusted_prior_population_parameters[1:7, 2] = adjusted_prior_population_parameters[1:7, 1]
 
 # https://stat.columbia.edu/~gelman/research/published/toxicology.pdf
 posterior_population_parameters = np.array([

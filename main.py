@@ -17,7 +17,7 @@ cmdstanpy.set_cmdstan_path(cmdstan_paths[-1])
 float_formatter = "{:.4g}".format
 np.set_printoptions(formatter={'float_kind':float_formatter})
 
-model_path = f'stan/monster.stan'
+model_path = f'stan/unconstrained_monster.stan'
 
 def estimate_work(data):
     return 1+data['likelihood']*np.size(data['experiments'])*data['no_sub_steps']
@@ -56,13 +56,13 @@ refinement_data = [
 ]
 
 fneff_goal = .99#.99
-divergence_goal = 1#0
+divergence_goal = 0#0
 no_fit_sub_steps = no_sub_steps_progression[0]
 no_sim_sub_steps = -12
 
 
 std_trunc = 1
-pop_trunc = 0
+pop_trunc = np.inf
 person_trunc = 10
 noise_scale = .1
 
@@ -92,7 +92,7 @@ prior_data = dict(
         public_data.prior_population_parameters, std_trunc, pop_trunc, person_trunc
     ),
 )
-prior_fit = model.sample(prior_data, **sample_kwargs)
+# prior_fit = model.sample(prior_data, **sample_kwargs)
 
 fit_data = dict(
     prior_data,
@@ -109,12 +109,13 @@ incremental_data = [prior_data] + [
 ]
 
 fig = None
+base = f'figs/{model.name}'
 def callback(i, fit, **kwargs):
     global fig
     tprint(fit.short_diagnosis)
     fit_idx = len(fit.fit_sequence)
     fig = plotting.plot_fit(
-        fit, path=f'figs/incremental/{fit_idx:03d}.png', fig=fig,
+        fit, path=f'{base}/incremental/{fit_idx:03d}.png', fig=fig,
         overlay=fit_idx
     )
 
@@ -126,19 +127,19 @@ incremental_fit = model.isample(
     ),
     **sample_kwargs
 ).eliminate_divergences(divergence_goal, callback)
+prior_fit = model.sample(prior_data, **sample_kwargs)
+incremental_fig = plotting.plot_fit(
+    prior_fit, prefix='prior', path=f'{base}/prior.png'
+)
+plotting.plot_fit(
+    incremental_fit, fig=incremental_fig, path=f'{base}/incremental.png',
+    prefix='incremental warmup'
+)
 regular_fit = model.sample(
     incremental_fit.sample_data, **sample_kwargs
 )
-prior_fit = model.sample(prior_data, **sample_kwargs)
-incremental_fig = plotting.plot_fit(
-    prior_fit, prefix='prior', path='figs/prior.png'
-)
-plotting.plot_fit(
-    incremental_fit, fig=incremental_fig, path='figs/incremental.png',
-    prefix='incremental warmup'
-)
 regular_fig = plotting.plot_fit(prior_fit, prefix='prior')
 plotting.plot_fit(
-    regular_fit, fig=regular_fig, path='figs/regular.png',
+    regular_fit, fig=regular_fig, path=f'{base}/regular.png',
     prefix='regular warmup'
 )
