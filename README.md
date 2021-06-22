@@ -40,3 +40,15 @@ I do not include in the repository
 All computations were run on my local machine (6/12 core 2020 Dell-notebook).
 
 I think the model should be correct, or at least as close to correct as necessary. In the best case (for me), everything but the "sum-to-one" constraints are correct, and I can successfully fit the original Monster model roughly within an hour on my local machine. In the worst case, there is a bug somewhere, but even then I can fit a model which qualitatively behaves very similarly to the original Monster model, and after an eventual bugfix I *should* be able to fit the original Monster model.   
+
+Renormalization to satisfy sum-to-X constraints happens at two levels:
+- At the population level and
+- at the person level.
+
+Meaning, for the blood flows (parameters 2-5) which are constrained to sum to one,
+both the *population geometric means* get [renormalized](https://github.com/nsiccha/monster/blob/7c71f0a0d7390ca389459c7d86da3fba10f1da38/stan/monster.stan#L252) such that they sum to one
+and the *personwise parameters* get [renormalized](https://github.com/nsiccha/monster/blob/7c71f0a0d7390ca389459c7d86da3fba10f1da38/stan/monster.stan#L260) as well.
+The same is done for the relative volumes of the compartments.
+
+To prescribe the same priors exactly as in the [original paper](http://www.stat.columbia.edu/~gelman/bayescomputation/GelmanBoisJIang1996.pdf), it looks like
+we would have to adjust the prior means and SDs as described e.g. in http://stat.columbia.edu/~gelman/research/published/moments.pdf
