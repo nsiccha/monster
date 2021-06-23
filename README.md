@@ -56,4 +56,4 @@ we would have to adjust the prior means and SDs as described e.g. in http://stat
 A better approach appears to be to enforce the sum-to-X constraints
 by reducing the number of parameters by one for each constraint,
 as described by @bob-carpenter (personal communication).
-This is implemented in https://github.com/nsiccha/monster/blob/master/stan/hard_unconstrained_monster.stan and a sample output is https://github.com/nsiccha/monster/blob/master/figs/hard_unconstrained_monster_sd%3D1/incremental.png.
+This is implemented in https://github.com/nsiccha/monster/blob/master/stan/hard_unconstrained_monster.stan and a sample output is https://github.com/nsiccha/monster/blob/master/figs/hard_unconstrained_monster_sd%3D1/incremental.png (with SD truncation but nu=2) or https://github.com/nsiccha/monster/blob/master/figs/hard_unconstrained_monster_sd%3Dinf_nu%3D4/incremental.png (without any truncation but nu=4).
