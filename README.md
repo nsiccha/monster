@@ -52,3 +52,8 @@ The same is done for the relative volumes of the compartments.
 
 To prescribe the same priors exactly as in the [original paper](http://www.stat.columbia.edu/~gelman/bayescomputation/GelmanBoisJIang1996.pdf), it looks like
 we would have to adjust the prior means and SDs as described e.g. in http://stat.columbia.edu/~gelman/research/published/moments.pdf
+
+A better approach appears to be to enforce the sum-to-X constraints
+by reducing the number of parameters by one for each constraint,
+as described by @bob-carpenter (personal communication).
+This is implemented in https://github.com/nsiccha/monster/blob/master/stan/hard_unconstrained_monster.stan and a sample output is https://github.com/nsiccha/monster/blob/master/figs/hard_unconstrained_monster_sd%3D1/incremental.png.
