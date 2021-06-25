@@ -1,0 +1,1 @@
+{"metric": "dense", "chains": 6, "seed": 3, "show_progress": true, "refresh": 1, "iter_sampling": 333, "output_dir": "out/ff0f65baa12b28c82263296f29eb9b6372272d32", "save_diagnostics": true, "sig_figs": 16, "save_warmup": true}
