@@ -1,0 +1,1 @@
+{"chains": 1, "seed": 3, "show_progress": true, "refresh": 1, "iter_sampling": 333, "output_dir": "out/8ff5f3bf2ad21335828ffd4bb9c195b556e53b78", "save_diagnostics": true, "sig_figs": 16, "save_warmup": true}

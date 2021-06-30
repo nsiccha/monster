@@ -1,0 +1,1 @@
+{"chains": 1, "seed": 3, "show_progress": true, "refresh": 1, "iter_sampling": 0, "save_warmup": true, "save_diagnostics": true, "adapt_init_phase": 25, "adapt_metric_window": 475, "adapt_step_size": 0, "iter_warmup": 500, "output_dir": "out/9923f19946f3c68d207f3a944a81b53dd7ba97ac", "sig_figs": 16}

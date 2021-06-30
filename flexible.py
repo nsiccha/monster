@@ -183,6 +183,7 @@ for std_nu, enforce_constraints in itertools.product([8,4,3,2], [1]):
         # prefix='incremental warmup',
         force=True
     )
+    incremental_fit.dump(f'cfg/{title}/parallel_incremental')
 
     # tprint('Starting ADVI')
     # advi = advi_fit = model.variational(
@@ -249,12 +250,14 @@ for std_nu, enforce_constraints in itertools.product([8,4,3,2], [1]):
                 force=True,
                 title=title
             )
+            pdir_fit.dump(f'cfg/{title}/serial_regular')
 
         plotting.plot_fit(
             [prior_fit, single_incremental_fit], path=f'{fig_base}/serial_incremental.png',
             force=True,
             title=title
         )
+        single_incremental_fit.dump(f'cfg/{title}/serial_incremental')
     plt.close('all')
     #
     # tprint('Starting perfectly initialized dense regular fit')
