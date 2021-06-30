@@ -254,7 +254,7 @@ histograms of the personwise parameter values (left)
 and predictive checks (right).
 
 For ease of access we link the comparison figure for the case nu=8:
-![nu=8](figs/nu=8/comparison?raw=true "nu=8").
+![nu=8](figs/nu=8/comparison.png?raw=true "nu=8").
 
 ### Data and model availability
 
