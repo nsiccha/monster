@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import public_data
 from excmdstanpy import *
+import shutil
 
 
 possible_priors = [
@@ -11,6 +12,13 @@ possible_priors = [
 ]
 
 def plot_fit(fit, **kwargs):
+    if isinstance(fit, list):
+        fig = plot_fit(fit[0], **dict(kwargs, path=None))
+        for ifit in fit[1:-1]:
+            plot_fit(fit[0], **dict(kwargs, fig=fig, path=None))
+        return plot_fit(fit[-1], **dict(kwargs, fig=fig))
+    force = kwargs.pop('force', False)
+    # if not force: return
     no_persons = fit.sample_data['no_persons']
     no_experiments = fit.sample_data['no_experiments']
     no_latent_params = fit.sample_data['no_latent_params']
@@ -23,10 +31,11 @@ def plot_fit(fit, **kwargs):
     no_lines = kwargs.pop('no_lines', 6)
     colors = kwargs.pop('colors', sns.color_palette('husl', no_lines))
     color = kwargs['color'] = kwargs.get('color', colors[no_fits % no_lines])
-    prefix = kwargs.pop('prefix', None)
+    prefix = kwargs.pop('prefix', getattr(fit, 'label', None))
     path = kwargs.pop('path', None)
+    title = kwargs.pop('title', None)
 
-    no_mrows = 2
+    no_mrows = 3
     no_rows = no_mrows+2+kwargs.pop('no_plotted_persons', no_persons)
     no_cols = (2*no_experiments+no_latent_params)
     no_lines = 6
@@ -53,7 +62,8 @@ def plot_fit(fit, **kwargs):
                 tax = fig.add_subplot(gs[i,:])
                 tax.set(xlabel='transition')
             fig.top_axes.append(tax)
-        tax, lax, gax, cax = fig.top_axes + [None,None]
+        wax, tax, lax, gax, cax = fig.top_axes + [None,None]
+        # wax.set(ylabel='estimated cumulative work')
         tax.set(yscale='log', ylabel='n_leapfrog')
         lax.set(ylabel='lp__')
         # gax.set(yscale='log', ylabel='sorted covariance eigenvalues')
@@ -70,18 +80,22 @@ def plot_fit(fit, **kwargs):
                 truncation = pp[i, -1]
                 ft = truncation
                 xlim = eM * (eS ** np.array([-ft, ft]))
+                pxlim = eM * (eS ** np.array([-ft-1, ft+1]))
                 for j, ax in enumerate(axes[:, i]):
                     if j != 1:
                         ax.set(xscale='log')
                     if j == 0:
-                        if k == 0:
-                            ax.set(xlim=xlim*[.5,2.])
-                            # for ax_ in axes[2:, i]:
-                            #     ax.set(xlim=xlim*[.5,2.])
+                        if k == 1:
+                            # print(public_data.param_labels[i], eM, pxlim)
+                            ax.set(xlim=pxlim)
+                            for ax_ in axes[2:, i]:
+                                ax_.set(xlim=pxlim)
                     elif j == 1:
+                        trunc = np.array(fit.sample_data['std_truncation'])[:, i]
+                        trunc[1] = min(1, trunc[1])
                         ax.set(xlim=np.exp(np.exp(
                             np.log(np.log(possible_priors[1][i,2])) +
-                            np.array(fit.sample_data['std_truncation'])[:, i]
+                            trunc
                         )))
                         ax.axvline(pp[i, 2], color=color, zorder=100)
                         continue
@@ -99,20 +113,28 @@ def plot_fit(fit, **kwargs):
 
 
     color = kwargs['color']
-    tax, lax, gax, cax = fig.top_axes + [None,None]
+    wax, tax, lax, gax, cax = fig.top_axes + [None,None]
     axes = fig.param_axes
     fig.fits.append(fit)
-    x = .2 * (no_fits // no_lines)
-    y = bot - ((no_fits % no_lines) * dy + dy/2)
+    x = .33 * (no_fits // no_lines)
+    y = bot - ((no_fits % no_lines) * dy + dy)
     if prefix is None:
         prefix = f'datum-{no_fits}'
-        data_update = fit.scalar_data_update
-        if data_update:
-            prefix += f' ({data_update})'
-    print(prefix)
+        # data_update = fit.scalar_data_update
+        # if data_update:
+        #     prefix += f' ({data_update})'
+    summ = prefix + ': ' + fit.short_diagnosis.replace('\n', ' | ')
+    print(summ)
+
+    if title is not None:
+        fig.text(
+            0, bot, str(title),
+            ha='left', va='center',
+            color='black'
+        )
 
     fig.text(
-        x, y, prefix + ': ' + fit.short_diagnosis.replace('\n', ' | '),
+        x, y, summ,
         ha='left', va='center',
         color=color
     )
@@ -139,7 +161,24 @@ def plot_fit(fit, **kwargs):
         for ax, col in zip(axes[:, i], cols):
             # if col != cols[1]:
             #     ax.set(xscale='log')
-            fit.plot_hist(ax, col, label=f'{fit.lw_rhat(col):.2f}', **kwargs)
+
+            xlim = ax.get_xlim()
+            if col.startswith('population_eS'):
+                bins = np.linspace(*xlim)
+                log_scale = False
+            else:
+                bins = np.linspace(*np.log(xlim))/np.log(10)
+                log_scale = 10
+            # print(col, xlim, np.quantile(fit.lw_df[col], [0,1]), bins)
+            fit.plot_hist(
+                ax, col, label=f'{fit.lw_rhat(col):.2f}',
+                # binrange=np.quantile(fit.lw_df[col], [0.05, .95]),
+                log_scale=log_scale,
+                bins=bins,
+                stat='probability',
+                **kwargs
+            )
+            ax.set(xlim=xlim)
             l = ax.legend(loc='best', title='Rhat')
             if overlay:
                 l.set_zorder(1000)
@@ -171,8 +210,13 @@ def plot_fit(fit, **kwargs):
                     # fit.lw_df[col] = fit.recompute_log_prob_grad(
                     #     refdata, cache_dir='out'
                     # ).lp__.to_numpy()
-            ax.set(xlim=np.quantile(fit[col], [0,1]))
-            fit.plot_hist(ax, col, label=f'{fit.lw_rhat(col):.2f}', **kwargs)
+                if col not in fit.lw_df.columns: continue
+            ax.set(xlim=np.quantile(fit.lw_df[col], [0,1]))
+            fit.plot_hist(
+                ax, col, label=f'{fit.lw_rhat(col):.2f}',
+                stat='probability',
+                **kwargs
+            )
             l = ax.legend(loc='best', title='Rhat')
             if overlay:
                 l.set_zorder(1000)
@@ -227,20 +271,24 @@ def plot_fit(fit, **kwargs):
     # cvals.insert(0, 0*cvals[0])
 
 
-    fit.plot_trace(tax, 'n_leapfrog__', colors=color)
-    fit.plot_trace(lax, 'lp__', colors=color)
-    lax.set(ylim=np.quantile(fit['lp__'], [0,1]))
+    if 'n_leapfrog__' in fit.lw_df.columns:
+        fit.plot_work(wax, colors=color)
+        fit.plot_trace(tax, 'n_leapfrog__', colors=color)
+        fit.plot_trace(lax, 'lp__', colors=color)
+        lax.set(ylim=np.quantile(fit['lp__'], [0,1]))
     # gax.plot(gx, gvals, **kwargs)
     # cax.plot(gx, cvals, **kwargs)
     for ax in fig.top_axes:
         if ax is None: continue
         ax.set(xlim=(gx[0], max(gx[-1], ax.get_xlim()[1])))
-        fit.plot_updates(ax)
+        fit.plot_updates(ax, color=color)
 
 
-    if path is not None and not os.path.exists(path):
+    if path is not None and (not os.path.exists(path) or force):
         dirname = os.path.dirname(path)
-        if not os.path.exists(dirname):
+        if dirname and not os.path.exists(dirname):
             os.makedirs(dirname)
         fig.savefig(path)
+        shutil.copy(path, 'current_fig.png')
+
     return fig

@@ -1,59 +1,275 @@
-In the `figs` folder you will find large figures([constrained](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/incremental.png), [unconstrained](https://github.com/nsiccha/monster/tree/master/figs/unconstrained_monster/incremental.png)) representing a fit of the Monster model. I'll try to keep this readme as brief as possible.
+# The Monster model revisited using [Stan](https://mc-stan.org/)
 
-I rebuilt the models ([constrained](https://github.com/nsiccha/monster/tree/master/stan/constrained_monster.stan), [unconstrained](https://github.com/nsiccha/monster/tree/master/stan/unconstrained_monster.stan))
-- (mostly) according to the specification in [the original paper](https://stat.columbia.edu/~gelman/research/published/toxicology.pdf),
-- from which I also took the [publicly available data](https://github.com/nsiccha/monster/tree/master/public_data.py),
-- taking `PPM_per_mg_per_l` from the [MCSim documentation example](https://www.gnu.org/software/mcsim/mcsim.html#perc_002emodel) which differs from the value given in the paper,
-- using (not publicly available?) raw measurement data as provided by Charles (not included in the repository),
+The so called Monster model is a
+[hierarchical](https://en.wikipedia.org/wiki/Bayesian_hierarchical_modeling#Hierarchical_models)
+[physiologically based pharmacokinetic](https://en.wikipedia.org/wiki/Physiologically_based_pharmacokinetic_modelling) model describing
+the evolution and measurement of a carcinogenic in the human body, named after
+the first author (A.C. Monster) of the
+[paper](https://link.springer.com/content/pdf/10.1007/BF00377784.pdf)
+which inspired the "original" Bayesian model developed by
+[Gelman et al.](http://www.stat.columbia.edu/~gelman/bayescomputation/GelmanBoisJIang1996.pdf).
+This model has originally been fit using [GNU MCSim](https://www.gnu.org/software/mcsim/)
+implementing "a variant of the [Gibbs sampler](https://en.wikipedia.org/wiki/Gibbs_sampling)" (Gelman et al.).
+While the authors report imperfect convergence diagnostics
+("Sqrt(Rhat) values were reduced to all lie below 1.2", section 3.1, ibid.),
+they appear confident in their results and provide population and personwise
+posterior means and standard deviations (Table 1, ibid.).
 
-I added
-- an upper truncation for the population (geometric) standard deviation and
-- a lower and upper truncation for the personwise parameters.
+However, attempts to fit the Monster model using Stan, which implements
+among other things [Hamiltonian Monte Carlo](https://en.wikipedia.org/wiki/Hamiltonian_Monte_Carlo)
+with the associated [No U-Turn Sampler](https://jmlr.org/papers/volume15/hoffman14a/hoffman14a.pdf),
+have so far been unsuccessful. Here we will very briefly summarize the steps needed
+to fit the Monster model efficiently and reliably using Stan and report differences
+between the fit obtained using Stan and the fit reported in the original paper.
 
-I kept
-- the lower and upper truncation for the population (geometric) means.
+## Methods
 
-I potentially did not implement faithfully
-- the "sum-to-one" constraints. Compare samples from the prior with the bounds (grey vertical dashed lines in the population mean plots) at [constrained priors](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/prior.png) and [unconstrained priors](https://github.com/nsiccha/monster/tree/master/figs/unconstrained_monster/prior.png)
+We believe we
+[rebuilt the original model](stan/flexible_monster.stan)
+almost 100% as in the original paper (there were some inconsistencies across sources).
+For this we combined
+* the [original paper](http://www.stat.columbia.edu/~gelman/bayescomputation/GelmanBoisJIang1996.pdf)
+which is somewhat sparse on details,
+* a [revamped version(?)](https://stat.columbia.edu/~gelman/research/published/toxicology.pdf)
+with more authors and more explicit implementation details,
+* an [MCSim documentation example](https://www.gnu.org/software/mcsim/mcsim.html#perc_002emodel)
+which provides a different `PPM_per_mg_per_l` than the two papers, but one that makes
+the prior [predictive](https://docs.pymc.io/notebooks/posterior_predictive.html) [checks](https://avehtari.github.io/masterclass/slides_ppc.pdf) look much more [reasonable](figs/nu=8/paper_posterior.png),
+* raw measurement data provided by Charles.
 
-I don't *think* the sum-to-one constraints should impact the fit *very* much, though `Fwp` looks a bit weird.
+For fitting the model we employed our own custom warmup, but verified with the default warmup.
 
-I did/checked
-- [prior predictive checks](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/prior.png),
-- [paper-posterior predictive checks](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/posterior.png),
-- [posterior predictive checks](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/incremental.png)
-- after Bob's suggestion a poor man's [SBC](https://github.com/nsiccha/monster/tree/master/figs/sbc/monster/0.png), for which the fits don't look too bad (red vertical lines are the true parameter values and are sampled from the paper-posteriors)
-All predictive checks and the generated data used for SBC used the built-in BDF solver with high precision (rel_tol=1e-12, abs_tol=1e-26).
+### The modified Monster model
 
-Warmup+sampling (while conditioning only on the data from the first two participants) took [3+3 minutes](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/incremental.png) for "my" incremental warmup, which includes an automatic adaptation of the ODE solution precision , while it took [24+6 minutes](https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/regular.png) using Stan's regular warmup, with the ODE solution precision provided by my warmup (not included in runtime). Neff is slightly higher for my warmup, but overall comparable. There were no divergences. Rhat with 6x333 samples is 1.014/1.023. E-BFMI is a bit low, around 0.5.
+Changes to the original model which **were not necessary** for "convergence" but "feel" better
+in the context of HMC include
+* removing the hard bounds on the population means and
+* removing the overparametrizations due to softly enforcing various sum-to-X constraints (thanks Bob!).
 
-My warmup consists of repeatedly rerunning the first two adaptation windows with few iterations and pooling draws to estimate the covariance across chains, while
-- first simultaneously increasing the number of data points included and
-- then simultaneously increasing the precision of the ODE solver until we think lp__ has converged.
-Plots of intermediate fits can be found in https://github.com/nsiccha/monster/tree/master/figs/constrained_monster/incremental.
+The only change to the original model which **was necessary** to fit the model without divergences
+was
+* to tighten the priors on the population geometric standard deviations (GSD).
 
-Neither for this partial fit nor for fits including all of the data was I able to recover the marginal posteriors as provided in the original paper (black vertical lines for all figures). Some parameters agreed relatively well, others not at all. Most of my marginal posteriors were considerably wider than the ones from the paper.
+We believe that due to an inherent [non-identifiability](https://en.wikipedia.org/wiki/Identifiability)
+of some pairs of parameters
+(the behavior of the underlying ordinary differential equation depends *only*
+on pairwise *products* of these parameters)
+we get very little information on the GSDs of these parameters.
+For the priors proposed in the paper ([scaled_inv_chi_square](https://mc-stan.org/docs/2_22/functions-reference/scaled-inverse-chi-square-distribution.html) with nu=2)
+we cannot even sample from the prior without issues, and with little to no information
+on some GSDs from the data, we expect this problems to carry over to the posterior.
+In fact, even for many of the parameters which *do not* suffer from this non-identifiability,
+we do not obtain tight bounds on personwise parameter values or on population means and GSDs.  
 
-I do not include in the repository
-- the raw measurements, as they are potentially private,
-- the code/framework for my incremental warmup, as it is kind of a mess.
-All computations were run on my local machine (6/12 core 2020 Dell-notebook).
+For the model formulation a ~~centered~~ ~~(no, non-centered!)~~
+"unconstrained-and-on-the-unit-scale" parametrization was chosen for the population
+means and personwise parameters (meaning a manual [non-centered](https://mc-stan.org/docs/2_18/stan-users-guide/reparameterization-section.html) parametrization on the unit scale, i.e. mu_raw ~ std_normal() and param_raw ~ std_normal()).
 
-I think the model should be correct, or at least as close to correct as necessary. In the best case (for me), everything but the "sum-to-one" constraints are correct, and I can successfully fit the original Monster model roughly within an hour on my local machine. In the worst case, there is a bug somewhere, but even then I can fit a model which qualitatively behaves very similarly to the original Monster model, and after an eventual bugfix I *should* be able to fit the original Monster model.   
+### Incremental and adaptive warmup
 
-Renormalization to satisfy sum-to-X constraints happens at two levels:
-- At the population level and
-- at the person level.
+While the Monster model does not appear to suffer from spurious
+[multimodality](https://www.yulingyao.com/blog/2019/stacking/) such as
+other ordinary differential equation (ODE) models
+(e.g. the [planetary motion problem](https://mc-stan.org/users/documentation/case-studies/planetary_motion/planetary_motion.html)), it still suffers from the regular difficulties
+intrinsic to ODE models. There are several tuning parameters, which
+* if chosen too conservatively (high precision) slows down computation considerably,
+* if chosen too aggressively (low precision) may frustrate the sampler by introducing
+"spurious" divergences.
 
-Meaning, for the blood flows (parameters 2-5) which are constrained to sum to one,
-both the *population geometric means* get [renormalized](https://github.com/nsiccha/monster/blob/7c71f0a0d7390ca389459c7d86da3fba10f1da38/stan/monster.stan#L252) such that they sum to one
-and the *personwise parameters* get [renormalized](https://github.com/nsiccha/monster/blob/7c71f0a0d7390ca389459c7d86da3fba10f1da38/stan/monster.stan#L260) as well.
-The same is done for the relative volumes of the compartments.
+While one wants to avoid these spurious divergences at all cost, one also does not want to
+have to wait hours to days for the results, if not necessary!
+On top of efficiency and divergence concerns,
+choosing an ODE precision that is too low may unbeknownst to the user introduce bias into the estimate!
 
-To prescribe the same priors exactly as in the [original paper](http://www.stat.columbia.edu/~gelman/bayescomputation/GelmanBoisJIang1996.pdf), it looks like
-we would have to adjust the prior means and SDs as described e.g. in http://stat.columbia.edu/~gelman/research/published/moments.pdf
+*However*, a priori we do not know which ODE configuration is just right, yielding
+unbiased estimates and not derailing the HMC sampler, while also efficiently yielding results.
+In principle we could draw a lot of samples from the prior, simulate the ODEs
+with incrementally increasing precision, select some domain specific convergence
+threshold after which we deem the solution(s) accurate enough and select an ODE
+configuration just past this point (as done e.g. [here](https://users.aalto.fi/~timonej3/case_study_num.html#32_Generating_test_data)).
+This however is potentially inefficient or inaccurate, simply because the precision
+requirements across the prior may be completely different than across the posterior.
+For the [planetary motion problem](https://mc-stan.org/users/documentation/case-studies/planetary_motion/planetary_motion.html),
+accurately simulating the "typical set" of the *prior* would require a much *higher precision*
+than is necessary for the specific posterior due to the data discussed,
+while for models such as the Monster model certain *posteriors* could require a
+much *higher precision* than is necessary to simulate the "typical set" of the prior.
 
-A better approach appears to be to enforce the sum-to-X constraints
-by reducing the number of parameters by one for each constraint,
-as described by @bob-carpenter (personal communication).
-This is implemented in a [tentative model](https://github.com/nsiccha/monster/blob/master/stan/hard_unconstrained_monster.stan) and a sample outputs are [with SD truncation but nu=2](https://github.com/nsiccha/monster/blob/master/figs/hard_unconstrained_monster_sd%3D1/incremental.png) or [without any truncation but nu=4](https://github.com/nsiccha/monster/blob/master/figs/hard_unconstrained_monster_sd%3Dinf_nu%3D4/incremental.png).
+Luckily we have an answer to automatically, adaptively and efficiently select
+the "best" ODE configuration. It is essentially [this workflow](https://users.aalto.fi/~timonej3/case_study_num.html#2_Workflow) but embedded into an incremental and adaptive warmup
+which allows the reconfiguration (of e.g. ODE solver configurations) **during warmup**.
+
+Bob has (rightfully) pointed out similarities of my warmup procedure to
+[Sequential Monte Carlo methods (SMC)](https://en.wikipedia.org/wiki/Particle_filter).
+In fact, just as SMC, our *incremental* warmup procedures relies on the user identifying a
+"good" sequence of data updates, preferrably starting at "no data" (only prior information)
+and ending at "all of the data" (full posterior). With these data updates provided,
+the incremental warmup procedure proceeds as follows:
+
+#### Incremental and parallelizable warmup
+
+For each data update
+* For each chain, perform the first two warmup phases with a *single* metric adaptation window.
+* Compute the global covariance from the pooled metric adaptation draws across chains.
+* Use the last draws from each chain as starting point for the next dataset, the (pooled) covariance as the metric, and (currently) the across-chain-mean of the very last timestep as the new timestep.
+* Add whatever reconfiguration you deem necessary to the next data-update(s). This is where the automatic ODE reconfiguration can be plugged in.
+
+Before sampling, Stan's last warmup phase may be necessary (currently I use a replacement).
+
+A "good" sequence of data updates allows chains to use starting points and metrics
+from previous data updates to **efficiently** explore the current intermediate posterior.
+To minimize the total computational cost, data updates which incrementally *double*
+the cost of each leapfrog iteration appear to be ideal. This generally allows us to *skip
+the costly early phases of Stan's default warmup, where the metric is not well-adapted and
+the average treedepth is high*. In the best case (as in the Monster model), average
+treedepths are only high during early stages of our warmup, which due to the
+exponentially increasing computational cost per leapfrog iteration contributes very
+little in terms of total computational costs. *Pooling of draws across chains to
+estimate the covariance* allows us to **parallelize the warmup**, with the current
+parallelization bottleneck being the repeated first warmup phase. *However*,
+the first warmup phase might be able to be eliminated completely or shortened by
+using importance sampling (not tested yet). Due to the pooling across chains we
+currently get away with 100 final metric adaptation iterations per chain
+(using 6 parallel chains). As a side effect of doing things incrementally,
+we also tend to avoid spurious modes.
+
+#### Adaptive warmup
+
+Adaptively tuning the ODE solver configurations is just one special case of reconfiguration
+that is possible using the above warmup procedure.
+In our [implementation of the Monster model](stan/flexible_monster.stan)
+we can solve the personwise ODEs either using a custom ODE solver relying
+on a [Strang splitting](https://en.wikipedia.org/wiki/Strang_splitting)
+or using the [built-in](https://mc-stan.org/docs/2_24/functions-reference/functions-ode-solver.html)
+adaptive numerical solver provided by [CVODES](https://computing.llnl.gov/projects/sundials/cvodes)
+using the [backward differentiation formula (BDF)](https://en.wikipedia.org/wiki/Backward_differentiation_formula). We can switch between the two options and tune them using a `data`
+argument.
+
+While the built-in ODE solver appears to more efficiently provide high precision solutions,
+it does not appear to work *at all* if the precision is too low. Our custom ODE
+solver is roughly equivalent in terms of computational cost for moderate precision solutions,
+while allowing us to go to arbitrarily low precision without ever derailing the
+HMC sampler by introducing "spurious" divergences but still yielding *qualitatively*
+correct solutions. The custom ODE solver is tuneable
+via a `data` argument determining the number of steps performed, with the
+computational cost scaling linearly with this argument. For the built-in ODE solver
+the configuration-cost relationship is unclear a priori, except that it is monotonic.
+
+Currently, the adaptation starts with a very cheap, very low precision configuration and proceeds as follows:
+* If we are at the final data update (i.e. don't adapt the configuration beforehand),
+recompute the (log) posterior density for the N draws from the current metric
+adaptation window, *but with a higher precision*.
+* Compute importance weights and Neff.
+* If Neff/N < threshold rerun warmup phases I+II reinitialized as discussed above and repeat,
+else start sampling with the current metric and initial points (and a custom timestep adaptation).
+
+Currently "higher precision" means using double the number of ODE steps and
+equivalently using double the computational resources per leapfrog step.
+The current threshold is set at a very conservative 99% to ensure convergence.
+*However*, the threshold could potentially be relaxed if we want to importance sample after
+approximate HMC sampling (as done e.g. [here](https://users.aalto.fi/~timonej3/case_study_num.html#2_Workflow)). Due to the computational cost again
+increasing exponentially, early adaptation windows tend to contribute very little
+to the final computational cost.
+
+# Results
+
+We can efficiently fit the full Monster model with all diagnostics looking good for nu>=3.
+For nu=2 the divergences do not appear to be removable by lowering the step size.
+Our custom warmup procedure not only automatically provides the "ideal" ODE configuration,
+it also is considerably faster and computationally more efficient
+than Stan's regular warmup.
+
+Below we discuss a single case in detail, but all other cases are similar.
+
+## The case nu=8
+
+The parallel version of my warmup (employing 6 chains) outperforms
+the regular warmup (also employing 6 parallel chains) in terms of wall time
+by a factor of more than 12 with "better" diagnostics and higher Neff.
+However, as Bob has pointed out,
+neither my warmup nor the regular warmup can run at peak computational efficiency
+with 6 chains in parallel on my local hardware
+(a 2020 Dell Precision 5500 running an Intel(R) Core(TM) i7-10750H CPU @ 2.60GHz with 6 cores).
+A fairer comparison (neglecting the parallelizability of my warmup) thus runs just a
+single chain (for both warmup procedures),
+which can then exploit computational and memory bandwidth resources
+at its fullest. For this setup we get for warmup+sampling wall times
+
+* 45m+19m (my serial warmup),
+* 3h+54m (Stan's warmup)
+
+and for "effective" total number of final leapfrog steps per sample
+
+* 204 (my serial warmup)
+* 733 (Stan's warmup)
+
+with better diagnostics and Neff for my warmup.
+
+For my warmup we have to estimate how many "cheaper" leapfrog steps are equivalent
+to one "final" leapfrog step for my warmup. The cost scales both with the amount
+of data included and with the number of ODE steps. The estimation used appears to
+be accurate enough, with wall time and effective total number of final leapfrog steps
+per sample correlating nicely.
+
+For sake of completeness we also include the same metrics for the parallel version
+of my warmup with the same number of final samples per chain:
+
+* warmup+sampling wall times: 24m+33m
+* effective total number of final leapfrog steps per sample: 100
+
+During sampling, the mean number of leapfrog steps were
+
+* 56 (my serial warmup),
+* 166 (Stan's warmup),
+* 57 (my parallel warmup).
+
+Thus, 1-19/33 = 42%, appears to be a good estimate of the loss of computational
+efficiency for the parallel run due to the limitations of my local hardware
+and we could optimistically expect a further reduction of warmup wall time by 42%
+on a machine/cluster on which all chains could run unperturbed.
+This would currently give us a speedup of 45/(24*58%) = 323% with 6 chains,
+which is not ideal but appears acceptable. Other parallelization overhead such
+as communication should be negligible, as the computations are very data efficient
+(many FLOPs per Mb of data/communication) for the later, more expensive stages of warmup.
+
+### Excessively large figures with too much information
+
+For each setting and method large figures can be found under [figs/nu=x](figs/)
+visualizing the different fits and including diagnostics in the lower left corner.
+[figs/nu=x/method.png](figs/nu=8/) plots the prior fit and the fit obtained using
+the respective method, while [figs/nu=x/comparison.png](figs/nu=8/comparison.png)
+includes all fits.
+
+In the figures you can see, with different colors representing different fits,
+
+* in the first row an estimate of the cumulative work performed,
+* in the second row a trace plot of the number of leapfrog steps per iteration,
+* in the third row a trace plot of `lp__`,
+* in the fourth row histograms of the population means (left) and
+mean predicted vs observed states per experiment and measurement type (right),
+* in the fifth row histograms of the population GSDs (left) and
+of the two noise parameters and `lp__` and `energy__` and  
+* starting from the sixth row with one person per row
+histograms of the personwise parameter values (left)
+and predictive checks (right).
+
+For ease of access we link the comparison figure for the case nu=8:
+![nu=8](figs/nu=8/comparison?raw=true "nu=8").
+
+### Data and model availability
+
+The Stan model can be found at [stan/flexible_monster.stan](stan/flexible_monster.stan).
+The final fits can be found at [cfg/nu=x/method.csv](cfg/) and
+the final data files and configurations can be found at [cfg/nu=x/method_*.json](cfg/),
+
+* where x is 2, 3, 4 or 8 (once everything has finished running),
+* method is either of `regular`, `serial_incremental` or `parallel_incremental` and
+* `*` is either of `data`, `init_*`, `kwargs` or `metric`.
+
+In the subfolders [cfg/nu=x/method](cfg/nu=8) the same files can be found for all
+intermediate data updates.
+
+### Code availability
+
+Everything but the secret sauce is included in this repository.
+The secret sauce is a hot and continuously shifting mess, but is available upon request.
