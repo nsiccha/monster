@@ -253,6 +253,20 @@ of the two noise parameters and `lp__` and `energy__` and
 histograms of the personwise parameter values (left)
 and predictive checks (right).
 
+For the *population means*, vertical lines indicate
+prior (grey) and
+paper posterior (black)
+means (solid) and
+population means +/- 3 population SDs (dashed).
+For the *population GSDs* vertical lines indicate
+prior (grey) and
+paper posterior (black)
+estimates of the population GSDs.
+For the *personwise parameter values*, grey lines indicate the same thing
+as for the population means, while black lines indicate
+*personwise paper posterior means +/- 3 personwise SDs*.
+
+
 For ease of access we link the comparison figure for the case nu=8:
 ![nu=8](figs/nu=8/comparison.png?raw=true "nu=8").
 
