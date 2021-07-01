@@ -156,7 +156,7 @@ ppm_to_mgl = .488/72
 ppm_exposures = np.array([72,144])
 exposures = ppm_exposures*ppm_to_mgl #exposure concentration
 
-def get_base_data(population_parameters, std_trunc, pop_trunc, person_trunc):
+def get_base_data(population_parameters, std_trunc, pop_trunc, person_trunc, nu=None):
     no_latent_params = len(population_parameters)
 
     population_truncation = [
@@ -177,7 +177,7 @@ def get_base_data(population_parameters, std_trunc, pop_trunc, person_trunc):
         population_eM_eM=population_parameters[:, 0],
         population_eM_eS=population_parameters[:, 1],
         population_eS_mu=population_parameters[:, 2],
-        population_eS_nu=population_parameters[:, 3],
+        population_eS_nu=population_parameters[:, 3] if nu is None else (population_parameters[:, 3] * 0 + nu),
         population_truncation=population_truncation,
         std_truncation=std_truncation,
         person_truncation=person_truncation,

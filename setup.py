@@ -7,3 +7,14 @@ sample_kwargs = dict(
     cache_dir='out',
     trycatch=True
 )
+advi_kwargs = dict(
+    seed=sample_kwargs['seed'],
+    cache_dir='out',
+    output_samples=no_samples,
+    require_converged=False
+)
+
+single_sample_kwargs = dict(
+    sample_kwargs,
+    chains=1
+)

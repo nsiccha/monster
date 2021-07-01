@@ -37,7 +37,7 @@ which provides a different `PPM_per_mg_per_l` than the two papers, but one that 
 the prior [predictive](https://docs.pymc.io/notebooks/posterior_predictive.html) [checks](https://avehtari.github.io/masterclass/slides_ppc.pdf) look much more [reasonable](figs/nu=8/paper_posterior.png),
 * raw measurement data provided by Charles.
 
-For fitting the model we employed our own custom warmup, but verified with the default warmup.
+For fitting the model we employed our own custom warm-up, but verified with the default warm-up.
 
 ### The modified Monster model
 
@@ -65,7 +65,7 @@ For the model formulation a ~~centered~~ ~~(no, non-centered!)~~
 "unconstrained-and-on-the-unit-scale" parametrization was chosen for the population
 means and personwise parameters (meaning a manual [non-centered](https://mc-stan.org/docs/2_18/stan-users-guide/reparameterization-section.html) parametrization on the unit scale, i.e. mu_raw ~ std_normal() and param_raw ~ std_normal()).
 
-### Incremental and adaptive warmup
+### Incremental and adaptive warm-up
 
 While the Monster model does not appear to suffer from spurious
 [multimodality](https://www.yulingyao.com/blog/2019/stacking/) such as
@@ -96,47 +96,58 @@ while for models such as the Monster model certain *posteriors* could require a
 much *higher precision* than is necessary to simulate the "typical set" of the prior.
 
 Luckily we have an answer to automatically, adaptively and efficiently select
-the "best" ODE configuration. It is essentially [this workflow](https://users.aalto.fi/~timonej3/case_study_num.html#2_Workflow) but embedded into an incremental and adaptive warmup
-which allows the reconfiguration (of e.g. ODE solver configurations) **during warmup**.
+the "best" ODE configuration. It is essentially [this workflow](https://users.aalto.fi/~timonej3/case_study_num.html#2_Workflow) but embedded into an incremental and adaptive warm-up
+which allows the reconfiguration (of e.g. ODE solver configurations) **during warm-up**.
 
-Bob has (rightfully) pointed out similarities of my warmup procedure to
+Bob has (rightfully) pointed out similarities of my warm-up procedure to
 [Sequential Monte Carlo methods (SMC)](https://en.wikipedia.org/wiki/Particle_filter).
-In fact, just as SMC, our *incremental* warmup procedures relies on the user identifying a
+In fact, just as SMC, our *incremental* warm-up procedures relies on the user identifying a
 "good" sequence of data updates, preferrably starting at "no data" (only prior information)
 and ending at "all of the data" (full posterior). With these data updates provided,
-the incremental warmup procedure proceeds as follows:
+the incremental warm-up procedure proceeds as follows:
 
-#### Incremental and parallelizable warmup
+#### Incremental and parallelizable warm-up
 
 For each data update
-* For each chain, perform the first two warmup phases with a *single* metric adaptation window.
+* For each chain, perform the first two warm-up phases with a *single* metric adaptation window.
 * Compute the global covariance from the pooled metric adaptation draws across chains.
 * Use the last draws from each chain as starting point for the next dataset, the (pooled) covariance as the metric, and (currently) the across-chain-mean of the very last timestep as the new timestep.
 * Add whatever reconfiguration you deem necessary to the next data-update(s). This is where the automatic ODE reconfiguration can be plugged in.
 
-Before sampling, Stan's last warmup phase may be necessary (currently I use a replacement).
+Before sampling, Stan's last warm-up phase may be necessary (currently I use a replacement).
 
 A "good" sequence of data updates allows chains to use starting points and metrics
 from previous data updates to **efficiently** explore the current intermediate posterior.
 To minimize the total computational cost, data updates which incrementally *double*
 the cost of each leapfrog iteration appear to be ideal. This generally allows us to *skip
-the costly early phases of Stan's default warmup, where the metric is not well-adapted and
+the costly early phases of Stan's default warm-up, where the metric is not well-adapted and
 the average treedepth is high*. In the best case (as in the Monster model), average
-treedepths are only high during early stages of our warmup, which due to the
+treedepths are only high during early stages of our warm-up, which due to the
 exponentially increasing computational cost per leapfrog iteration contributes very
 little in terms of total computational costs. *Pooling of draws across chains to
-estimate the covariance* allows us to **parallelize the warmup**, with the current
-parallelization bottleneck being the repeated first warmup phase. *However*,
-the first warmup phase might be able to be eliminated completely or shortened by
-using importance sampling (not tested yet). Due to the pooling across chains we
+estimate the covariance* allows us to **parallelize the warm-up**, with the current
+parallelization bottleneck being the repeated first warm-up phase. *However*,
+the first warm-up phase might be able to be eliminated completely or shortened by
+using importance sampling ~~(not tested yet)~~. Due to the pooling across chains we
 currently get away with 100 final metric adaptation iterations per chain
 (using 6 parallel chains). As a side effect of doing things incrementally,
 we also tend to avoid spurious modes.
 
-#### Adaptive warmup
+##### Short addendum: importance resampling to skip repeating phase I
+
+With the posteriors appearing unimodal, at first glance it appears to be safe
+to use importance resampling to get new initial points for the chains which
+are closer to or in the typical set of the next (intermediate) posterior,
+thereby allowing us to shorten or skip the repeated phase I. This *appears* to improve the
+scalability of the algorithm somewhat. **This should not be done if the posterior
+is multimodal, as we may lose a mode this way**, at least if we first pool draws across
+chains and then resample. Resampling "within chains" should still be safe, even
+for multimodal posteriors. 
+
+#### Adaptive warm-up
 
 Adaptively tuning the ODE solver configurations is just one special case of reconfiguration
-that is possible using the above warmup procedure.
+that is possible using the above warm-up procedure.
 In our [implementation of the Monster model](stan/flexible_monster.stan)
 we can solve the personwise ODEs either using a custom ODE solver relying
 on a [Strang splitting](https://en.wikipedia.org/wiki/Strang_splitting)
@@ -160,7 +171,7 @@ Currently, the adaptation starts with a very cheap, very low precision configura
 recompute the (log) posterior density for the N draws from the current metric
 adaptation window, *but with a higher precision*.
 * Compute importance weights and Neff.
-* If Neff/N < threshold rerun warmup phases I+II reinitialized as discussed above and repeat,
+* If Neff/N < threshold rerun warm-up phases I+II reinitialized as discussed above and repeat,
 else start sampling with the current metric and initial points (and a custom timestep adaptation).
 
 Currently "higher precision" means using double the number of ODE steps and
@@ -175,62 +186,62 @@ to the final computational cost.
 
 We can efficiently fit the full Monster model with all diagnostics looking good for nu>=3.
 For nu=2 the divergences do not appear to be removable by lowering the step size.
-Our custom warmup procedure not only automatically provides the "ideal" ODE configuration,
+Our custom warm-up procedure not only automatically provides the "ideal" ODE configuration,
 it also is considerably faster and computationally more efficient
-than Stan's regular warmup.
+than Stan's regular warm-up.
 
 Below we discuss a single case in detail, but all other cases are similar.
 
 ## The case nu=8
 
-The parallel version of my warmup (employing 6 chains) outperforms
-the regular warmup (also employing 6 parallel chains) in terms of wall time
+The parallel version of my warm-up (employing 6 chains) outperforms
+the regular warm-up (also employing 6 parallel chains) in terms of wall time
 by a factor of more than 12 with "better" diagnostics and higher Neff.
 However, as Bob has pointed out,
-neither my warmup nor the regular warmup can run at peak computational efficiency
+neither my warm-up nor the regular warm-up can run at peak computational efficiency
 with 6 chains in parallel on my local hardware
 (a 2020 Dell Precision 5500 running an Intel(R) Core(TM) i7-10750H CPU @ 2.60GHz with 6 cores).
-A fairer comparison (neglecting the parallelizability of my warmup) thus runs just a
-single chain (for both warmup procedures),
+A fairer comparison (neglecting the parallelizability of my warm-up) thus runs just a
+single chain (for both warm-up procedures),
 which can then exploit computational and memory bandwidth resources
-at its fullest. For this setup we get for warmup+sampling wall times
+at its fullest. For this setup we get for warm-up+sampling wall times
 
-* 45m+19m (my serial warmup),
-* 3h+54m (Stan's warmup)
+* 45m+19m (my serial warm-up),
+* 3h+54m (Stan's warm-up)
 
 and for "effective" total number of final leapfrog steps per sample
 
-* 204 (my serial warmup)
-* 733 (Stan's warmup)
+* 204 (my serial warm-up)
+* 733 (Stan's warm-up)
 
-with better diagnostics and Neff for my warmup.
+with better diagnostics and Neff for my warm-up.
 
-For my warmup we have to estimate how many "cheaper" leapfrog steps are equivalent
-to one "final" leapfrog step for my warmup. The cost scales both with the amount
+For my warm-up we have to estimate how many "cheaper" leapfrog steps are equivalent
+to one "final" leapfrog step for my warm-up. The cost scales both with the amount
 of data included and with the number of ODE steps. The estimation used appears to
 be accurate enough, with wall time and effective total number of final leapfrog steps
 per sample correlating nicely.
 
 For sake of completeness we also include the same metrics for the parallel version
-of my warmup with the same number of final samples per chain:
+of my warm-up with the same number of final samples per chain:
 
-* warmup+sampling wall times: 24m+33m
+* warm-up+sampling wall times: 24m+33m
 * effective total number of final leapfrog steps per sample: 100
 
 During sampling, the mean number of leapfrog steps were
 
-* 56 (my serial warmup),
-* 166 (Stan's warmup),
-* 57 (my parallel warmup).
+* 56 (my serial warm-up),
+* 166 (Stan's warm-up),
+* 57 (my parallel warm-up).
 
 Thus, 1-19/33 = 42%, appears to be a good estimate of the loss of computational
 efficiency for the parallel run due to the limitations of my local hardware
-and we could optimistically expect a further reduction of warmup wall time by 42%
+and we could optimistically expect a further reduction of warm-up wall time by 42%
 on a machine/cluster on which all chains could run unperturbed.
 This would currently give us a speedup of 45/(24*58%) = 323% with 6 chains,
 which is not ideal but appears acceptable. Other parallelization overhead such
 as communication should be negligible, as the computations are very data efficient
-(many FLOPs per Mb of data/communication) for the later, more expensive stages of warmup.
+(many FLOPs per Mb of data/communication) for the later, more expensive stages of warm-up.
 
 ### Excessively large figures with too much information
 
@@ -269,6 +280,45 @@ as for the population means, while black lines indicate
 
 For ease of access we link the comparison figure for the case nu=8:
 ![nu=8](figs/nu=8/comparison.png?raw=true "nu=8").
+
+### Why you should/should not trust my results
+
+Reasons not to trust my results:
+
+* I know nothing about pharmacology,
+* I know very little about Bayesian inference,
+* there may still be a bug in my model, e.g. I might accidentally solve the wrong ODE,
+* this is my first hierarchical model and by extension my first hierarchical ODE model,
+* my warm-up procedure has **not** been extensively tested,
+* my results do not agree with the results reported in the paper:
+  * **all population-variance-parameters and parameter variances are much higher** than reported,
+  * VPR does not move much, and in the wrong direction,
+  * Fwp, Fpp, VMI and KMI do not move enough (but in the right direction),
+  * Ff, Fl do almost not move at all,
+  * Vwp, Vpp, Vl, Pwp, Ppp, Pf and Pl seem to move to the "right" location (but retain a high variation),
+  * Pba very confidently appears to "overshoot",
+* not all diagnostics are always perfect (Some Rhats are > 1.01, if barely so),
+* relatedly, I reimplemented the (split) Rhat and E-BFMI computation myself,
+meaning there might potentially be a bug somewhere.
+
+Possible reasons to trust my results:
+
+* prior predictive checks and paper-posterior predictive checks [look good](figs/nu=8/paper_posterior.png),
+* my-posterior predictive checks [look great](figs/nu=8/parallel_incremental.png),
+* posterior predictive checks **taking the paper-posterior as prior and then fitting**
+[look similarly great, if maybe slightly worse,](figs/nu=8/posterior_resampling_parallel_incremental.png)
+and appear to recover the reported personwise parameters reasonably well,
+* the fits obtained using my warm-up look
+[indistinguishable in the eye-norm](figs/nu=8/incremental_vs_regular.png)
+from fits obtained using Stan's regular warm-up,
+* for the predictive checks, Stan's built in ODE solver has been used, while for
+fitting I used my custom ODE solver and both appear to agree with one another,
+* apparently, the used variant of the Gibbs sampler is prone to getting stuck or
+not properly exploring high-dimensional posteriors with correlations,
+* all diagnostics look fine for my fits, while the diagnostics reported in the
+paper are less than ideal and less exhaustive (no concept of divergences, no E-BFMI),
+* my reimplementation of the diagnostics so far have always agreed closely with the
+ones computed by `CmdStan`.
 
 ### Data and model availability
 

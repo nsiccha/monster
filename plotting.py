@@ -13,12 +13,12 @@ possible_priors = [
 
 def plot_fit(fit, **kwargs):
     if isinstance(fit, list):
-        fig = plot_fit(fit[0], **dict(kwargs, path=None))
-        for ifit in fit[1:-1]:
-            plot_fit(fit[0], **dict(kwargs, fig=fig, path=None))
+        fig = None
+        for ifit in fit[:-1]:
+            fig = plot_fit(ifit, **dict(kwargs, fig=fig, path=None))
         return plot_fit(fit[-1], **dict(kwargs, fig=fig))
     force = kwargs.pop('force', False)
-    # if not force: return
+    # return
     no_persons = fit.sample_data['no_persons']
     no_experiments = fit.sample_data['no_experiments']
     no_latent_params = fit.sample_data['no_latent_params']

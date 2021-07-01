@@ -33,16 +33,17 @@ model = StanModel(
     estimate_work=estimate_work
 )
 model_base = f'figs/{model.name}'
-fig = base = title = None
+fig = base = title = subdir = None
 
 def callback(i, fit, **kwargs):
     global fig
     global base
     global title
+    global subdir
     tprint(fit.short_diagnosis)
     fit_idx = len(fit.fit_sequence)
     if fit_idx == 1: fig = None
-    subdir = ('serial' if fit.no_chains == 1 else 'parallel') + '_incremental'
+    # subdir = ('serial' if fit.no_chains == 1 else 'parallel') + '_incremental'
     fit.dump(f'cfg/{title}/{subdir}/{fit_idx:03d}')
     # if std_nu < 4: return
     fig = plotting.plot_fit(
@@ -88,7 +89,7 @@ noise_scale = .1
 param_labels = public_data.param_labels
 no_latent_params = public_data.no_latent_params
 
-for std_nu, enforce_constraints in itertools.product([8,4,3,2], [1]):
+for std_nu, enforce_constraints in itertools.product([4,3,2], [1]):
     # title = f'persons={no_conditioned_persons}_sd={std_trunc}_nu={std_nu}_hard={enforce_constraints}'
     title = f'nu={std_nu}'
     tprint.extra = [title]
@@ -128,29 +129,32 @@ for std_nu, enforce_constraints in itertools.product([8,4,3,2], [1]):
             nu=std_nu
         ),
     )
-    reg_prior_data = dict(
-        prior_data,
-        population_eS_nu=np.where(
-            prior_data['population_eS_nu'] > 2,
-            prior_data['population_eS_nu'],
-            3
-        )
-    )
+    reg_prior_data = dict(prior_data)
+    reg_paper_posterior_data = dict(paper_posterior_data)
+    if std_nu == 2:
+        reg_prior_data['population_eS_nu'] = 1 + reg_prior_data['population_eS_nu']
+        reg_paper_posterior_data['population_eS_nu'] = 1 + reg_paper_posterior_data['population_eS_nu']
+    # reg_prior_data = dict(
+    #     prior_data,
+    #     population_eS_nu=np.where(
+    #         prior_data['population_eS_nu'] > 2,
+    #         prior_data['population_eS_nu'],
+    #         3
+    #     )
+    # )
     prior_fit = model.sample(reg_prior_data, **sample_kwargs)
     prior_fit.label = 'prior'
     incremental_fig = plotting.plot_fit(
         prior_fit, path=f'{fig_base}/prior.png',
-        force=True,
         title=title
     )
-    if std_nu > 2:
-        paper_posterior_fit = model.sample(paper_posterior_data, **sample_kwargs)
-        paper_posterior_fit.label = 'paper posterior'
-        plotting.plot_fit(
-            [prior_fit, paper_posterior_fit], path=f'{fig_base}/paper_posterior.png',
-            force=True,
-            title=title
-        )
+    # if std_nu > 2:
+    paper_posterior_fit = model.sample(reg_paper_posterior_data, **sample_kwargs)
+    paper_posterior_fit.label = 'paper posterior'
+    plotting.plot_fit(
+        [prior_fit, paper_posterior_fit], path=f'{fig_base}/paper_posterior.png',
+        title=title
+    )
 
     fit_data = dict(
         prior_data,
@@ -165,8 +169,19 @@ for std_nu, enforce_constraints in itertools.product([8,4,3,2], [1]):
         )
         for i in geometric_progression(2,no_measurements)
     ]
+    posterior_incremental_data = [reg_paper_posterior_data] + [
+        dict(
+            paper_posterior_data,
+            likelihood=1,
+            no_measurements=i,
+            experiments=raw_measurements[:,:,:i],
+            weights=weights[:,:,:i]
+        )
+        for i in geometric_progression(2,no_measurements)
+    ]
 
     tprint('Starting adaptive incremental fit')
+    subdir = 'parallel_incremental'
     incremental_fit = model.isample(
         incremental_data,
         warmup=dict(
@@ -179,11 +194,55 @@ for std_nu, enforce_constraints in itertools.product([8,4,3,2], [1]):
     # if fig is not None:
     #     plt.close(fig)
     plotting.plot_fit(
-        incremental_fit, fig=incremental_fig, path=f'{fig_base}/parallel_incremental.png',
+        incremental_fit, fig=incremental_fig, path=f'{fig_base}/{subdir}.png',
+        # prefix='incremental warmup',
+        # force=True
+    )
+    incremental_fit.dump(f'cfg/{title}/{subdir}')
+
+
+    tprint('Starting resampling adaptive incremental fit')
+    subdir = 'resampling_parallel_incremental'
+    resampling_incremental_fit = model.isample(
+        incremental_fit.sequence_data[:-1],
+        warmup=dict(
+            callback=callback,
+            # refine=(fneff_goal, refinement_data),
+            resample=2
+        ),
+        **sample_kwargs
+    )
+    resampling_incremental_fit.label = 'resampling parallel incremental warmup'
+    plotting.plot_fit(
+        resampling_incremental_fit, fig=incremental_fig, path=f'{fig_base}/{subdir}.png',
         # prefix='incremental warmup',
         force=True
     )
-    incremental_fit.dump(f'cfg/{title}/parallel_incremental')
+    resampling_incremental_fit.dump(f'cfg/{title}/{subdir}')
+
+
+    tprint('Starting resampling adaptive incremental posterior fit')
+    subdir = 'posterior_resampling_parallel_incremental'
+    posterior_resampling_incremental_fit = model.isample(
+        posterior_incremental_data,
+        warmup=dict(
+            callback=callback,
+            refine=(fneff_goal, refinement_data + [dict(no_sub_steps=2*max_no_sub_steps)]),
+            resample=2
+        ),
+        **sample_kwargs
+    )
+    posterior_resampling_incremental_fit.label = 'resampling parallel incremental warmup (paper posterior)'
+    plotting.plot_fit(
+        [
+            prior_fit,
+            resampling_incremental_fit,
+            posterior_resampling_incremental_fit
+        ], path=f'{fig_base}/{subdir}.png',
+        # prefix='incremental warmup',
+        force=True
+    )
+    posterior_resampling_incremental_fit.dump(f'cfg/{title}/{subdir}')
 
     # tprint('Starting ADVI')
     # advi = advi_fit = model.variational(
@@ -200,7 +259,8 @@ for std_nu, enforce_constraints in itertools.product([8,4,3,2], [1]):
     # )
 
     for n in [1]:#,4,8]:
-        tprint(f'Starting {n}-adaptive incremental fit')
+        tprint(f'Starting serial incremental fit')
+        subdir = 'serial_incremental'
         single_incremental_fit = model.isample(
             # incremental_data,
             incremental_fit.sequence_data[:-1],
@@ -235,6 +295,7 @@ for std_nu, enforce_constraints in itertools.product([8,4,3,2], [1]):
         }
         for label, kwargs in lk.items():
             tprint(f'Starting {label} fit')
+            subdir = label
             pdir_fit = model.sample(
                 incremental_fit.sample_data,
                 **dict(sample_kwargs, chains=n, **kwargs)
@@ -250,6 +311,12 @@ for std_nu, enforce_constraints in itertools.product([8,4,3,2], [1]):
                 force=True,
                 title=title
             )
+
+            plotting.plot_fit(
+                [prior_fit, pdir_fit, single_incremental_fit], path=f'{fig_base}/incremental_vs_regular.png',
+                force=True,
+                title=title
+            )
             pdir_fit.dump(f'cfg/{title}/serial_regular')
 
         plotting.plot_fit(
@@ -257,7 +324,7 @@ for std_nu, enforce_constraints in itertools.product([8,4,3,2], [1]):
             force=True,
             title=title
         )
-        single_incremental_fit.dump(f'cfg/{title}/serial_incremental')
+    single_incremental_fit.dump(f'cfg/{title}/serial_incremental')
     plt.close('all')
     #
     # tprint('Starting perfectly initialized dense regular fit')
