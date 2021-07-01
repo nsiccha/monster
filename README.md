@@ -311,9 +311,9 @@ and appear to recover the reported personwise parameters reasonably well,
 * the fits obtained using my warm-up look
 [indistinguishable in the eye-norm](figs/nu=8/incremental_vs_regular.png)
 from fits obtained using Stan's regular warm-up,
-* for the predictive checks, Stan's built in ODE solver has been used, while for
-fitting I used my custom ODE solver and both appear to agree with one another,
-* apparently, the used variant of the Gibbs sampler is prone to getting stuck or
+* for the predictive checks, Stan's built in ODE solver with a high-precision configuration
+has been used, while for fitting I used my custom ODE solver and both appear to agree with one another,
+* apparently, the variant of the Gibbs sampler used in the paper is prone to getting stuck or
 not properly exploring high-dimensional posteriors with correlations,
 * all diagnostics look fine for my fits, while the diagnostics reported in the
 paper are less than ideal and less exhaustive (no concept of divergences, no E-BFMI),
