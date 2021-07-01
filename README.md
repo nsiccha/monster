@@ -3,7 +3,7 @@
 The so called Monster model is a
 [hierarchical](https://en.wikipedia.org/wiki/Bayesian_hierarchical_modeling#Hierarchical_models)
 [physiologically based pharmacokinetic](https://en.wikipedia.org/wiki/Physiologically_based_pharmacokinetic_modelling) model describing
-the evolution and measurement of a carcinogenic in the human body, named after
+the evolution and measurement of a carcinogen in the human body, named after
 the first author (A.C. Monster) of the
 [paper](https://link.springer.com/content/pdf/10.1007/BF00377784.pdf)
 which inspired the "original" Bayesian model developed by
