@@ -142,7 +142,7 @@ thereby allowing us to shorten or skip the repeated phase I. This *appears* to i
 scalability of the algorithm somewhat. **This should not be done if the posterior
 is multimodal, as we may lose a mode this way**, at least if we first pool draws across
 chains and then resample. Resampling "within chains" should still be safe, even
-for multimodal posteriors. 
+for multimodal posteriors.
 
 #### Adaptive warm-up
 
@@ -279,7 +279,7 @@ as for the population means, while black lines indicate
 
 
 For ease of access we link the comparison figure for the case nu=8:
-![nu=8](figs/nu=8/comparison.png?raw=true "nu=8").
+![nu=8](figs/nu=8/comparison.png?raw=true "nu=8")
 
 ### Why you should/should not trust my results
 
@@ -291,13 +291,13 @@ Reasons not to trust my results:
 * this is my first hierarchical model and by extension my first hierarchical ODE model,
 * my warm-up procedure has **not** been extensively tested,
 * my results do not agree with the results reported in the paper:
-  * **all population-variance-parameters and parameter variances are much higher** than reported,
-  * VPR does not move much, and in the wrong direction,
+  * **all population-variance-parameters and parameter variances are much higher than reported**,
+  * VPR does not move much (and in the wrong direction),
   * Fwp, Fpp, VMI and KMI do not move enough (but in the right direction),
   * Ff, Fl do almost not move at all,
-  * Vwp, Vpp, Vl, Pwp, Ppp, Pf and Pl seem to move to the "right" location (but retain a high variation),
+  * Vwp, Vpp, Vl, Pwp, Ppp, Pf and Pl seem to move to the "right" location (but retain a high variance),
   * Pba very confidently appears to "overshoot",
-* not all diagnostics are always perfect (Some Rhats are > 1.01, if barely so),
+* not all diagnostics are always perfect (Some Rhats are > 1.01, even if barely so),
 * relatedly, I reimplemented the (split) Rhat and E-BFMI computation myself,
 meaning there might potentially be a bug somewhere.
 
@@ -323,14 +323,14 @@ ones computed by `CmdStan`.
 ### Data and model availability
 
 The Stan model can be found at [stan/flexible_monster.stan](stan/flexible_monster.stan).
-The final fits can be found at [cfg/nu=x/method.csv](cfg/) and
-the final data files and configurations can be found at [cfg/nu=x/method_*.json](cfg/),
+The final fits can be found at [cfg/nu=x/method.csv](cfg/nu=8/) and
+the final data files and configurations can be found at [cfg/nu=x/method_*.json](cfg/nu=8/),
 
 * where x is 2, 3, 4 or 8 (once everything has finished running),
-* method is either of `regular`, `serial_incremental` or `parallel_incremental` and
+* method is either of `serial_regular`, `serial_incremental`, `parallel_incremental` or `resampling_parallel_incremental` and
 * `*` is either of `data`, `init_*`, `kwargs` or `metric`.
 
-In the subfolders [cfg/nu=x/method](cfg/nu=8) the same files can be found for all
+In the subfolders [cfg/nu=x/method](cfg/nu=8/) the same files can be found for all
 intermediate data updates.
 
 ### Code availability
