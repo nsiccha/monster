@@ -8,7 +8,7 @@ posterior predictive checks (`*.gif`), pair plots (`*.png`) and summaries (`*.ht
 
 # Old data:
 
-[summary](only_old.html)
+[summary](only_old.md)
 
 ## Posterior predictive checks
 
