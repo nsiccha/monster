@@ -4,7 +4,7 @@ This folder contains for
 * only the new data and
 * both datasets combined
 
-posterior predictive checks (`*.gif`), pair plots (`*.png`) and summaries (`*.html`).
+posterior predictive checks (`*.gif`), pair plots (`*.png`) and summaries (`*.md`).
 
 # Old data:
 
