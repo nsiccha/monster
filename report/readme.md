@@ -29,3 +29,11 @@ posterior predictive checks (`*.gif`), pair plots (`*.png`) and summaries (`*.ht
 ## log person 1 parameters
 
 ![log person 1 parameters](only_old_log_person_1.png)
+
+## Unit log parameter 1 values
+
+![unit log person 1 parameters](only_old_unit_log_param_1.png)
+
+## log parameter 1 values
+
+![log person 1 parameters](only_old_log_param_1.png)
