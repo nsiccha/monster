@@ -20,7 +20,7 @@ posterior predictive checks (`*.gif`), pair plots (`*.png`) and summaries (`*.ht
 
 ## Unit log SDs
 
-![unit log SDs](only_old_unit_log_sds.png)
+![unit log SDs](only_old_unit_log_gsds.png)
 
 ## Unit log person 1 parameters
 
